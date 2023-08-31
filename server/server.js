@@ -2,14 +2,34 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'url';
 import express from 'express';
+// import vite from 'vite';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const root = process.cwd();
 const app = express();
 
 export async function createServer() {
-  const resolve = (p) => path.resolve(__dirname, p);
+  const resolve = (p) => path.resolve(root, p);
 
-  let vite = null;
+  let vite = await (
+    await import('vite')
+  ).createServer({
+    root,
+    logLevel: 'info',
+    server: {
+      middlewareMode: true,
+      watch: {
+        // During tests we edit the files too fast and sometimes chokidar
+        // misses change events, so enforce polling for consistency
+        usePolling: true,
+        interval: 100,
+      },
+      hmr: {
+        port: undefined,
+      },
+    },
+    appType: 'custom',
+  });
 
   app.use((await import('compression')).default());
   app.use(
@@ -18,6 +38,10 @@ export async function createServer() {
     })
   );
 
+  app.get('/ping', async (req, res) => {
+    res.send({ message: 'pong' });
+  });
+
   app.use('*', async (req, res) => {
     const url = '/';
 
@@ -25,7 +49,7 @@ export async function createServer() {
       resolve('dist/client/index.html'),
       'utf-8'
     );
-    const render = (await import('./dist/server/entry-server.js')).SSRRender;
+    const render = (await import('../dist/server/entry-server.js')).SSRRender;
 
     const appHtml = render(url); //Rendering component without any client side logic de-hydrated like a dry sponge
     const html = template.replace(`<!--app-html-->`, appHtml); //Replacing placeholder with SSR rendered components

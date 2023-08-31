@@ -14,7 +14,7 @@ const routes = Object.keys(PagePathsWithComponents).map((path: string) => {
   };
 });
 
-export function App() {
+export default function App() {
   return (
     <>
       <nav>
